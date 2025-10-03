@@ -21,9 +21,6 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import java.util.List;
 
 /*
- * This OpMode illustrates how to program your robot to drive field relative.  This means
- * that the robot drives the direction you push the joystick regardless of the current orientation
- * of the robot.
  *
  * This OpMode assumes that you have four mecanum wheels each on its own motor named:
  *   front_left_motor, front_right_motor, back_left_motor, back_right_motor
