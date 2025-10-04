@@ -45,8 +45,18 @@ public class MecanumDrive extends OpMode {
     // This declares the IMU needed to get the current direction the robot is facing
     IMU imu;
     private Servo Team_Indicator= null;
+    private static final double RED_INDICATOR = 0.27;
+    private static final double BLUE_INDICATOR = 0.63;
+    private static final double NEUTRAL_INDICATOR = 0.47;
+    private static final double OFF_INDICATOR = 0.0;
+
+    // AprilTag IDs for team identification
+    private static final int RED_APRILTAG_ID = 24;
+    private static final int BLUE_APRILTAG_ID = 20;
+    private boolean TeamIndicatorSeen = false;
     @Override
     public void init() {
+        TeamIndicatorSeen = false;
         // Get a reference to the sensor
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
@@ -68,12 +78,9 @@ public class MecanumDrive extends OpMode {
         frontRight = hardwareMap.get(DcMotor.class, "front_right_drive");
         backLeft = hardwareMap.get(DcMotor.class, "back_left_drive");
         backRight = hardwareMap.get(DcMotor.class, "back_right_drive");
-        Team_Indicator = hardwareMap.get(Servo.class, "TeamIndicator");
 
-        // Define constants for brightness levels (servo position 0.0 to 1.0)
-        final double RED = 0.27;   // Low brightness
-        final double BLUE = 0.63;   // Full on (maximum PWM pulse)
-        Team_Indicator.setPosition(0);
+        Team_Indicator = hardwareMap.get(Servo.class, "TeamIndicator");
+        Team_Indicator.setPosition(OFF_INDICATOR);
         // We set the left motors in reverse which is needed for drive trains where the left
         // motors are opposite to the right ones.
         backLeft.setDirection(DcMotor.Direction.REVERSE);
@@ -120,9 +127,6 @@ public class MecanumDrive extends OpMode {
     @Override
     public void loop() {
 
-        final double RED = 0.28;   // Low brightness
-        final double BLUE = 0.63;   // Full on (maximum PWM pulse)
-
         pinpoint.update();
         Pose2D pose2D = pinpoint.getPosition();
         telemetry.addData("X coordinate (IN)", pose2D.getX(DistanceUnit.INCH));
@@ -162,18 +166,18 @@ public class MecanumDrive extends OpMode {
             List<LLResultTypes.FiducialResult> fiducialResults = result.getFiducialResults();
         for (LLResultTypes.FiducialResult fr : fiducialResults) {
             telemetry.addData("Fiducial", "ID: %d, Family: %s, X: %.2f, Y: %.2f", fr.getFiducialId(), fr.getFamily(), fr.getTargetXDegrees(), fr.getTargetYDegrees());
-        if (fr.getFiducialId() == 24) {
-            Team_Indicator.setPosition(RED);
-        } else if (fr.getFiducialId() == 20) {
-                Team_Indicator.setPosition(BLUE);
-            }
 
-        else {
-                Team_Indicator.setPosition(0.47);
+            if (fr.getFiducialId() == RED_APRILTAG_ID && TeamIndicatorSeen == false) {
+                Team_Indicator.setPosition(RED_INDICATOR);
+                TeamIndicatorSeen = true;
+            } else if (fr.getFiducialId() == BLUE_APRILTAG_ID && TeamIndicatorSeen == false) {
+                Team_Indicator.setPosition(BLUE_INDICATOR);
+                TeamIndicatorSeen = true;
+            } else {
+                Team_Indicator.setPosition(NEUTRAL_INDICATOR);
             }
         }
 
-        
 
 
 
