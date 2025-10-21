@@ -104,8 +104,8 @@ public class MecanumDrive extends OpMode {
                 telemetry.addData("Scoring Location", "Reached");
             } else {
                 double headingRad = odoPose.getHeading(AngleUnit.RADIANS);
-                double localForward = dx * Math.cos(headingRad) + dy * Math.sin(headingRad);
-                double localRight = -dx * Math.sin(headingRad) + dy * Math.cos(headingRad);
+                double localForward = -dx * Math.sin(headingRad) + dy * Math.cos(headingRad);
+                double localRight = dx * Math.cos(headingRad) + dy * Math.sin(headingRad);
 
                 double k_p = 0.01; // tune position gain
                 double k_h = 0.01; // tune heading gain

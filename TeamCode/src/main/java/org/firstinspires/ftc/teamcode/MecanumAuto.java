@@ -32,9 +32,9 @@ public class MecanumAuto extends LinearOpMode {
         Pose2D currentPose = robot.updatePoseWithFusion();
         String alliance = RobotData.alliance;
         if (alliance.equals("Red")) {
-            turnRelativeDegrees(-45); // CCW for Red
+            turnRelativeDegrees(45); // CCW for Red
         } else if (alliance.equals("Blue")) {
-            turnRelativeDegrees(45); // CW for Blue
+            turnRelativeDegrees(-45); // CW for Blue
         } else {
             telemetry.addData("Alliance Unknown", "No turn performed");
             telemetry.update();
@@ -65,8 +65,9 @@ public class MecanumAuto extends LinearOpMode {
     }
 
     private void turnRelativeDegrees(double relativeAngleDeg) {
-        double turnPower = 0.3;
+        double maxTurnPower = 0.3;
         double tolerance = 2.0;
+        double k_h = 0.02; // Proportional gain - tune this value
 
         Pose2D currentPose = robot.updatePoseWithFusion();
         double initialHeading = currentPose.getHeading(AngleUnit.DEGREES);
@@ -76,7 +77,11 @@ public class MecanumAuto extends LinearOpMode {
             currentPose = robot.updatePoseWithFusion();
             double headingError = AngleUnit.normalizeDegrees(targetHeading - currentPose.getHeading(AngleUnit.DEGREES));
 
-            double rotate = Math.copySign(turnPower, headingError);
+            double rotate = k_h * headingError;
+
+            // Cap the rotation power
+            rotate = Math.max(-maxTurnPower, Math.min(maxTurnPower, rotate));
+
             robot.drive(0, 0, rotate);
 
             telemetry.addData("Turning Relative", relativeAngleDeg + " deg");

@@ -246,9 +246,8 @@ public class RobotHardware {
             }
 
             double headingRad = current.getHeading(AngleUnit.RADIANS);
-            double localForward = dx * Math.cos(headingRad) + dy * Math.sin(headingRad);
-            double localRight = -dx * Math.sin(headingRad) + dy * Math.cos(headingRad);
-
+            double localForward = -dx * Math.sin(headingRad) + dy * Math.cos(headingRad);
+            double localRight = dx * Math.cos(headingRad) + dy * Math.sin(headingRad);
             double forward = k_p * localForward;
             double right = k_p * localRight;
             double rotate = k_h * dheading;
