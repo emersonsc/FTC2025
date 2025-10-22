@@ -19,32 +19,54 @@ import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import java.util.List;
 
 public class RobotHardware {
+    // Odometry and sensors
     private GoBildaPinpointDriver pinpoint;
     private Limelight3A limelight;
-    private DcMotor frontLeft, frontRight, backLeft, backRight;
     private IMU imu;
+
+    // Drive motors
+    private DcMotor frontLeft, frontRight, backLeft, backRight;
+
+    // Indicator servos (for showing alliance and pattern)
     private Servo Team_Indicator, pattern1, pattern2, pattern3;
 
+    // New servos for indexer system
+    private Servo cameraTilt;    // Tilts the Limelight up/down
+    private Servo indexerServo;  // Rotates the indexer wheel
+    private Servo lifterServo;   // Lifts artifacts into flywheel
+
+    // Optional: Flywheel motor (uncomment if you have it)
+    // private DcMotor flywheelMotor;
+
+    // Servo positions for indicators
     private static final double RED_INDICATOR = 0.27;
     private static final double BLUE_INDICATOR = 0.61;
     private static final double GREEN_INDICATOR = 0.48;
     private static final double PURPLE_INDICATOR = 0.69;
     private static final double OFF_INDICATOR = 0.0;
 
+    // AprilTag IDs
     public static final int RED_APRILTAG_ID = 24;
     public static final int BLUE_APRILTAG_ID = 20;
     public static final int GPP_APRILTAG_ID = 21;
     public static final int PGP_APRILTAG_ID = 22;
     public static final int PPG_APRILTAG_ID = 23;
 
+    // Vision fusion parameters
     private double trustVision = 0.8;
     private double maxPoseError = 10.0;
     private double maxHeadingError = 15.0;
 
+    // Manager objects (initialized by OpModes)
+    private CameraPositionManager cameraManager;
+    private IndexerManager indexerManager;
+
     public RobotHardware(HardwareMap hardwareMap) {
+        // Initialize Pinpoint odometry
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
         configurePinpoint();
 
+        // Initialize drive motors
         frontLeft = hardwareMap.get(DcMotor.class, "front_left_drive");
         frontRight = hardwareMap.get(DcMotor.class, "front_right_drive");
         backLeft = hardwareMap.get(DcMotor.class, "back_left_drive");
@@ -63,16 +85,19 @@ public class RobotHardware {
         backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        // Initialize IMU
         imu = hardwareMap.get(IMU.class, "imu");
         RevHubOrientationOnRobot orientationOnRobot = new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.UP,
                 RevHubOrientationOnRobot.UsbFacingDirection.RIGHT);
         imu.initialize(new IMU.Parameters(orientationOnRobot));
 
+        // Initialize Limelight
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.pipelineSwitch(0);
         limelight.start();
 
+        // Initialize indicator servos
         Team_Indicator = hardwareMap.get(Servo.class, "TeamIndicator");
         Team_Indicator.setPosition(OFF_INDICATOR);
         pattern1 = hardwareMap.get(Servo.class, "pattern1");
@@ -81,6 +106,16 @@ public class RobotHardware {
         pattern2.setPosition(OFF_INDICATOR);
         pattern3 = hardwareMap.get(Servo.class, "pattern3");
         pattern3.setPosition(OFF_INDICATOR);
+
+        // Initialize new servos
+        cameraTilt = hardwareMap.get(Servo.class, "cameraTilt");
+        indexerServo = hardwareMap.get(Servo.class, "indexer");
+        lifterServo = hardwareMap.get(Servo.class, "lifter");
+
+        // Optional: Initialize flywheel motor
+        // flywheelMotor = hardwareMap.get(DcMotor.class, "flywheel");
+        // flywheelMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        // flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
     }
 
     public void configurePinpoint() {
@@ -248,6 +283,7 @@ public class RobotHardware {
             double headingRad = current.getHeading(AngleUnit.RADIANS);
             double localForward = -dx * Math.sin(headingRad) + dy * Math.cos(headingRad);
             double localRight = dx * Math.cos(headingRad) + dy * Math.sin(headingRad);
+
             double forward = k_p * localForward;
             double right = k_p * localRight;
             double rotate = k_h * dheading;
@@ -262,6 +298,25 @@ public class RobotHardware {
         drive(0, 0, 0);
     }
 
+    // ========== OPTIONAL FLYWHEEL METHODS ==========
+    // Uncomment these if you have a flywheel motor
+
+    /*
+    public void startFlywheel() {
+        flywheelMotor.setPower(1.0); // Adjust power as needed
+    }
+
+    public void stopFlywheel() {
+        flywheelMotor.setPower(0.0);
+    }
+
+    public void setFlywheelPower(double power) {
+        flywheelMotor.setPower(power);
+    }
+    */
+
+    // ========== GETTERS ==========
+
     public GoBildaPinpointDriver getPinpoint() {
         return pinpoint;
     }
@@ -273,4 +328,23 @@ public class RobotHardware {
     public Limelight3A getLimelight() {
         return limelight;
     }
+
+    public Servo getCameraTilt() {
+        return cameraTilt;
+    }
+
+    public Servo getIndexerServo() {
+        return indexerServo;
+    }
+
+    public Servo getLifterServo() {
+        return lifterServo;
+    }
+
+    // Optional: Flywheel getter
+    /*
+    public DcMotor getFlywheelMotor() {
+        return flywheelMotor;
+    }
+    */
 }

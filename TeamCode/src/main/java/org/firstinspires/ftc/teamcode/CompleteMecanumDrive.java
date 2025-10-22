@@ -11,7 +11,6 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import java.util.List;
 
 /**
- * Complete TeleOp with all original features PLUS simplified indexer control
  *
  * GAMEPAD 1 (Driver):
  * - Left stick: Forward/Strafe
@@ -31,6 +30,7 @@ public class CompleteMecanumDrive extends OpMode {
     private RobotHardware robot;
     private IndexerManager indexer;
     private LimelightColorDetector colorDetector;
+    private CameraPositionManager cameraManager;
 
     // Auto-drive to scoring position state
     private boolean targeting = false;
@@ -45,14 +45,20 @@ public class CompleteMecanumDrive extends OpMode {
     public void init() {
         robot = new RobotHardware(hardwareMap);
 
+        // Initialize camera position manager
+        cameraManager = new CameraPositionManager(
+                hardwareMap.get(com.qualcomm.robotcore.hardware.Servo.class, "cameraTilt"),
+                robot.getLimelight()
+        );
+
         // Initialize indexer
         indexer = new IndexerManager(
                 hardwareMap.get(com.qualcomm.robotcore.hardware.Servo.class, "indexer"),
                 hardwareMap.get(com.qualcomm.robotcore.hardware.Servo.class, "lifter")
         );
 
-        // Initialize color detector
-        colorDetector = new LimelightColorDetector(robot.getLimelight());
+        // Initialize color detector WITH camera manager
+        colorDetector = new LimelightColorDetector(robot.getLimelight(), cameraManager);
 
         // Load pose from auto if available
         if (RobotData.autoCompleted && RobotData.finalAutoPose != null) {
@@ -74,36 +80,56 @@ public class CompleteMecanumDrive extends OpMode {
     public void loop() {
         Pose2D odoPose = robot.updatePoseWithFusion();
 
+        // Update camera position manager
+        cameraManager.update();
+
+        // ========== AUTOMATIC CAMERA MANAGEMENT ==========
+        // Point camera based on what we're doing
+        if (gamepad2.left_bumper) {
+            // Intaking - point camera down at intake
+            cameraManager.moveTo(CameraPositionManager.CameraPosition.ARTIFACT_INTAKE);
+        } else if (targeting || gamepad2.right_bumper) {
+            // Shooting or auto-driving - point camera up for AprilTags
+            cameraManager.moveTo(CameraPositionManager.CameraPosition.APRILTAG_VIEW);
+        } else {
+            // Default - keep camera up for AprilTag detection and navigation
+            if (cameraManager.getCurrentPosition() != CameraPositionManager.CameraPosition.APRILTAG_VIEW) {
+                cameraManager.moveTo(CameraPositionManager.CameraPosition.APRILTAG_VIEW);
+            }
+        }
+
         // ========== ALLIANCE AND PATTERN DETECTION ==========
-        // Detect alliance and pattern if not set (from AprilTags in view)
-        LLResult result = robot.getLimelight().getLatestResult();
-        if (result != null && result.isValid()) {
-            List<LLResultTypes.FiducialResult> fiducialResults = result.getFiducialResults();
-            for (LLResultTypes.FiducialResult fr : fiducialResults) {
-                int id = fr.getFiducialId();
+        // Only detect when camera is pointing at AprilTags
+        if (cameraManager.isReadyForAprilTags()) {
+            LLResult result = robot.getLimelight().getLatestResult();
+            if (result != null && result.isValid()) {
+                List<LLResultTypes.FiducialResult> fiducialResults = result.getFiducialResults();
+                for (LLResultTypes.FiducialResult fr : fiducialResults) {
+                    int id = fr.getFiducialId();
 
-                // Alliance detection
-                if (RobotData.alliance.equals("NotSet")) {
-                    if (id == RobotHardware.RED_APRILTAG_ID) {
-                        RobotData.alliance = "Red";
-                        robot.setTeamIndicator("Red");
-                    } else if (id == RobotHardware.BLUE_APRILTAG_ID) {
-                        RobotData.alliance = "Blue";
-                        robot.setTeamIndicator("Blue");
+                    // Alliance detection
+                    if (RobotData.alliance.equals("NotSet")) {
+                        if (id == RobotHardware.RED_APRILTAG_ID) {
+                            RobotData.alliance = "Red";
+                            robot.setTeamIndicator("Red");
+                        } else if (id == RobotHardware.BLUE_APRILTAG_ID) {
+                            RobotData.alliance = "Blue";
+                            robot.setTeamIndicator("Blue");
+                        }
                     }
-                }
 
-                // Pattern detection
-                if (RobotData.pattern.equals("NotSet")) {
-                    if (id == RobotHardware.GPP_APRILTAG_ID) {
-                        RobotData.pattern = "GPP";
-                        robot.setPattern("GPP");
-                    } else if (id == RobotHardware.PGP_APRILTAG_ID) {
-                        RobotData.pattern = "PGP";
-                        robot.setPattern("PGP");
-                    } else if (id == RobotHardware.PPG_APRILTAG_ID) {
-                        RobotData.pattern = "PPG";
-                        robot.setPattern("PPG");
+                    // Pattern detection
+                    if (RobotData.pattern.equals("NotSet")) {
+                        if (id == RobotHardware.GPP_APRILTAG_ID) {
+                            RobotData.pattern = "GPP";
+                            robot.setPattern("GPP");
+                        } else if (id == RobotHardware.PGP_APRILTAG_ID) {
+                            RobotData.pattern = "PGP";
+                            robot.setPattern("PGP");
+                        } else if (id == RobotHardware.PPG_APRILTAG_ID) {
+                            RobotData.pattern = "PPG";
+                            robot.setPattern("PPG");
+                        }
                     }
                 }
             }
@@ -183,7 +209,7 @@ public class CompleteMecanumDrive extends OpMode {
                 indexer.startLoading();
             }
 
-            // Detect artifact color from Limelight
+            // Detect artifact color from Limelight (only when camera ready)
             IndexerManager.ArtifactColor detectedColor = colorDetector.detectColorRobust();
 
             // Update the loading state machine
@@ -248,6 +274,7 @@ public class CompleteMecanumDrive extends OpMode {
         // ========== TELEMETRY ==========
         telemetry.addData("Alliance", RobotData.alliance);
         telemetry.addData("Pattern", RobotData.pattern);
+        telemetry.addData("Camera", cameraManager.getStatusString());
         telemetry.addLine();
 
         telemetry.addData("Position", "X: %.1f, Y: %.1f",

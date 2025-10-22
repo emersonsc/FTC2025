@@ -12,6 +12,7 @@ import java.util.List;
 public class LimelightColorDetector {
 
     private Limelight3A limelight;
+    private CameraPositionManager cameraManager;
 
     // Detection thresholds
     private static final double MIN_TARGET_AREA = 0.5;  // Minimum target area to consider valid
@@ -21,8 +22,16 @@ public class LimelightColorDetector {
     private static final int GREEN_PIPELINE = 2;   // Pipeline configured for green detection
     private static final int PURPLE_PIPELINE = 3;  // Pipeline configured for purple detection
 
-    public LimelightColorDetector(Limelight3A limelight) {
+    public LimelightColorDetector(Limelight3A limelight, CameraPositionManager cameraManager) {
         this.limelight = limelight;
+        this.cameraManager = cameraManager;
+    }
+
+    /**
+     * Check if camera is in position for color detection
+     */
+    private boolean isCameraReady() {
+        return cameraManager.isReadyForColorDetection();
     }
 
     /**
