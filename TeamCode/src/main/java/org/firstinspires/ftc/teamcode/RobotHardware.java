@@ -6,6 +6,7 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -35,8 +36,8 @@ public class RobotHardware {
     private Servo indexerServo;  // Rotates the indexer wheel
     private Servo lifterServo;   // Lifts artifacts into flywheel
 
-    // Optional: Flywheel motor (uncomment if you have it)
-    // private DcMotor flywheelMotor;
+    // Flywheel motor
+    private DcMotor flywheelMotor;
 
     // Servo positions for indicators
     private static final double RED_INDICATOR = 0.27;
@@ -57,9 +58,8 @@ public class RobotHardware {
     private double maxPoseError = 10.0;
     private double maxHeadingError = 15.0;
 
-    // Manager objects (initialized by OpModes)
-    private CameraPositionManager cameraManager;
-    private IndexerManager indexerManager;
+    // Flywheel parameters
+    private static final double FLYWHEEL_POWER = 1.0; // Full power for shooting
 
     public RobotHardware(HardwareMap hardwareMap) {
         // Initialize Pinpoint odometry
@@ -112,10 +112,11 @@ public class RobotHardware {
         indexerServo = hardwareMap.get(Servo.class, "indexer");
         lifterServo = hardwareMap.get(Servo.class, "lifter");
 
-        // Optional: Initialize flywheel motor
-        // flywheelMotor = hardwareMap.get(DcMotor.class, "flywheel");
-        // flywheelMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        // flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        // Initialize flywheel motor (on Expansion Hub motor port 0)
+        flywheelMotor = hardwareMap.get(DcMotor.class, "flywheel");
+        flywheelMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT); // Coast when stopped for better spin-down
+        flywheelMotor.setDirection(DcMotorSimple.Direction.FORWARD); // Adjust if needed
     }
 
     public void configurePinpoint() {
@@ -298,22 +299,49 @@ public class RobotHardware {
         drive(0, 0, 0);
     }
 
-    // ========== OPTIONAL FLYWHEEL METHODS ==========
-    // Uncomment these if you have a flywheel motor
+    // ========== FLYWHEEL METHODS ==========
 
-    /*
+    /**
+     * Start the flywheel at full power
+     */
     public void startFlywheel() {
-        flywheelMotor.setPower(1.0); // Adjust power as needed
+        flywheelMotor.setPower(FLYWHEEL_POWER);
     }
 
+    /**
+     * Stop the flywheel
+     */
     public void stopFlywheel() {
         flywheelMotor.setPower(0.0);
     }
 
+    /**
+     * Set custom flywheel power (for testing/tuning)
+     */
     public void setFlywheelPower(double power) {
         flywheelMotor.setPower(power);
     }
-    */
+
+    /**
+     * Check if flywheel is running
+     */
+    public boolean isFlywheelRunning() {
+        return Math.abs(flywheelMotor.getPower()) > 0.01;
+    }
+
+    /**
+     * Get current flywheel velocity (RPM)
+     * Note: Motor must be in RUN_USING_ENCODER mode for velocity readings
+     */
+    public double getFlywheelVelocity() {
+        // For REV motors: getCurrentPosition() returns encoder ticks
+        // We can estimate velocity by checking encoder change over time
+        // Or simply return if motor is running for basic feedback
+
+        // Simple approach: return power level as percentage
+        // For actual RPM, you'd need velocity PID control
+        return flywheelMotor.getPower() * 100.0; // Returns 0-100%
+    }
 
     // ========== GETTERS ==========
 
@@ -341,10 +369,7 @@ public class RobotHardware {
         return lifterServo;
     }
 
-    // Optional: Flywheel getter
-    /*
     public DcMotor getFlywheelMotor() {
         return flywheelMotor;
     }
-    */
 }

@@ -374,6 +374,19 @@ public class IndexerManager {
     }
 
     /**
+     * Manually load an artifact into a specific slot (for testing and autonomous preload)
+     * @param slotNumber 1, 2, or 3
+     * @param color GREEN or PURPLE
+     */
+    public void loadArtifactManual(int slotNumber, ArtifactColor color) {
+        switch (slotNumber) {
+            case 1: slotOne = color; break;
+            case 2: slotTwo = color; break;
+            case 3: slotThree = color; break;
+        }
+    }
+
+    /**
      * Advance to the next empty slot
      */
     private void advanceToNextEmptySlot() {

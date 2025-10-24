@@ -11,6 +11,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import java.util.List;
 
 /**
+ * Complete TeleOp with all features including flywheel shooter
  *
  * GAMEPAD 1 (Driver):
  * - Left stick: Forward/Strafe
@@ -21,7 +22,7 @@ import java.util.List;
  *
  * GAMEPAD 2 (Operator):
  * - Left bumper: INTAKE (hold to auto-load artifacts)
- * - Right bumper: SHOOT (hold to auto-shoot sequence)
+ * - Right bumper: SHOOT (hold to auto-shoot sequence with flywheel)
  * - Y: Clear all indexer slots
  * - A: Reset indexer to home
  */
@@ -39,7 +40,7 @@ public class CompleteMecanumDrive extends OpMode {
     // Flywheel control
     private boolean flywheelActive = false;
     private long flywheelStartTime = 0;
-    private static final long FLYWHEEL_SPINUP_TIME = 1000; // ms
+    private static final long FLYWHEEL_SPINUP_TIME = 1000; // ms - time to reach full speed
 
     @Override
     public void init() {
@@ -229,8 +230,7 @@ public class CompleteMecanumDrive extends OpMode {
             if (!flywheelActive) {
                 flywheelActive = true;
                 flywheelStartTime = System.currentTimeMillis();
-                // TODO: Activate your flywheel motor here
-                // robot.startFlywheel();
+                robot.startFlywheel();
             }
 
             // Start shooting sequence if not already shooting
@@ -250,8 +250,7 @@ public class CompleteMecanumDrive extends OpMode {
             // Stop flywheel when button released
             if (flywheelActive) {
                 flywheelActive = false;
-                // TODO: Stop your flywheel motor here
-                // robot.stopFlywheel();
+                robot.stopFlywheel();
             }
 
             // Reset shooting state if button released mid-sequence
@@ -299,8 +298,10 @@ public class CompleteMecanumDrive extends OpMode {
             telemetry.addData("Shot", indexer.getCurrentShotNumber() + " of 3");
         }
 
+        // Flywheel status
         if (flywheelActive) {
-            telemetry.addData("Flywheel", "ACTIVE");
+            double power = robot.getFlywheelVelocity();
+            telemetry.addData("Flywheel", "ACTIVE - %.0f%%", power);
         }
 
         if (targeting) {
