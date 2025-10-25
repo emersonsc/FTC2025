@@ -23,10 +23,13 @@ public class RobotHardware {
     // Odometry and sensors
     private GoBildaPinpointDriver pinpoint;
     private Limelight3A limelight;
-    private IMU imu;
 
     // Drive motors
     private DcMotor frontLeft, frontRight, backLeft, backRight;
+
+    // Intake and shooter motors
+    private DcMotor intakeMotor;   // Active intake to pull artifacts in
+    private DcMotor flywheelMotor; // Flywheel shooter
 
     // Indicator servos (for showing alliance and pattern)
     private Servo Team_Indicator, pattern1, pattern2, pattern3;
@@ -35,9 +38,6 @@ public class RobotHardware {
     private Servo cameraTilt;    // Tilts the Limelight up/down
     private Servo indexerServo;  // Rotates the indexer wheel
     private Servo lifterServo;   // Lifts artifacts into flywheel
-
-    // Flywheel motor
-    private DcMotor flywheelMotor;
 
     // Servo positions for indicators
     private static final double RED_INDICATOR = 0.27;
@@ -59,7 +59,80 @@ public class RobotHardware {
     private double maxHeadingError = 15.0;
 
     // Flywheel parameters
-    private static final double FLYWHEEL_POWER = 1.0; // Full power for shooting
+    private static final double FLYWHEEL_POWER = 1.0;
+    private static final double TARGET_RPM = 3000;
+    private static final int TICKS_PER_REV = 28;
+    private double lastEncoderPos = 0;
+    private long lastTime = 0;
+    private double currentRPM = 0;
+
+    // PID Controllers
+    public static class PIDController {
+        private double kp, ki, kd;
+        private double target = 0;
+        private double integral = 0;
+        private double previousError = 0;
+        private double lastError = 0;     // For getError()
+        private double tolerance = 5.0;   // Default tolerance
+        private long lastTime = 0;
+
+        public PIDController(double kp, double ki, double kd) {
+            this.kp = kp;
+            this.ki = ki;
+            this.kd = kd;
+        }
+
+        public double calculate(double current) {
+            long now = System.currentTimeMillis();
+            double dt = (lastTime == 0) ? 0.02 : (now - lastTime) / 1000.0;
+            lastTime = now;
+
+            double error = target - current;
+            lastError = error;  // Save for getError()
+
+            // Proportional
+            double p = kp * error;
+
+            // Integral (with anti-windup)
+            if (Math.abs(error) < tolerance) {
+                integral += error * dt;
+            } else {
+                integral = 0;
+            }
+            double i = ki * integral;
+
+            // Derivative
+            double derivative = (dt > 0) ? (error - previousError) / dt : 0;
+            double d = kd * derivative;
+            previousError = error;
+
+            double output = p + i + d;
+            return Math.max(-1.0, Math.min(1.0, output)); // Clamp to [-1, 1]
+        }
+
+        // --- Setters ---
+        public void setTarget(double target) { this.target = target; }
+        public void setTolerance(double tolerance) { this.tolerance = tolerance; }
+
+        // --- Getters ---
+        public double getError() { return lastError; }
+        public double getTolerance() { return tolerance; }  // FIXED: NOW EXISTS
+
+        // --- Utility ---
+        public void reset() {
+            integral = 0;
+            previousError = 0;
+            lastError = 0;
+            lastTime = 0;
+        }
+    }
+
+    public PIDController positionPID = new PIDController(0.01, 0.0005, 0.002);
+    public PIDController headingPID   = new PIDController(0.01, 0.0002, 0.001);
+    public PIDController flywheelPID  = new PIDController(0.0005, 0.00001, 0.0001);
+
+    // Intake parameters
+    private static final double INTAKE_POWER = 0.8;
 
     public RobotHardware(HardwareMap hardwareMap) {
         // Initialize Pinpoint odometry
@@ -85,13 +158,6 @@ public class RobotHardware {
         backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        // Initialize IMU
-        imu = hardwareMap.get(IMU.class, "imu");
-        RevHubOrientationOnRobot orientationOnRobot = new RevHubOrientationOnRobot(
-                RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                RevHubOrientationOnRobot.UsbFacingDirection.RIGHT);
-        imu.initialize(new IMU.Parameters(orientationOnRobot));
-
         // Initialize Limelight
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.pipelineSwitch(0);
@@ -112,11 +178,16 @@ public class RobotHardware {
         indexerServo = hardwareMap.get(Servo.class, "indexer");
         lifterServo = hardwareMap.get(Servo.class, "lifter");
 
-        // Initialize flywheel motor (on Expansion Hub motor port 0)
+        // Initialize flywheel motor
         flywheelMotor = hardwareMap.get(DcMotor.class, "flywheel");
         flywheelMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT); // Coast when stopped for better spin-down
-        flywheelMotor.setDirection(DcMotorSimple.Direction.FORWARD); // Adjust if needed
+        flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        flywheelMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+
+        // Initialize intake motor
+        intakeMotor = hardwareMap.get(DcMotor.class, "intake");
+        intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
     }
 
     public void configurePinpoint() {
@@ -134,25 +205,23 @@ public class RobotHardware {
         double backLeftPower = forward - right + rotate;
 
         double maxPower = 1.0;
-        double maxSpeed = 1.0;
-
         maxPower = Math.max(maxPower, Math.abs(frontLeftPower));
         maxPower = Math.max(maxPower, Math.abs(frontRightPower));
         maxPower = Math.max(maxPower, Math.abs(backRightPower));
         maxPower = Math.max(maxPower, Math.abs(backLeftPower));
 
-        frontLeft.setPower(maxSpeed * (frontLeftPower / maxPower));
-        frontRight.setPower(maxSpeed * (frontRightPower / maxPower));
-        backLeft.setPower(maxSpeed * (backLeftPower / maxPower));
-        backRight.setPower(maxSpeed * (backRightPower / maxPower));
+        frontLeft.setPower(frontLeftPower / maxPower);
+        frontRight.setPower(frontRightPower / maxPower);
+        backLeft.setPower(backLeftPower / maxPower);
+        backRight.setPower(backRightPower / maxPower);
     }
 
     public Pose2D updatePoseWithFusion() {
-        pinpoint.update();
+        pinpoint.update();  // Ensure fresh data
         Pose2D odoPose = pinpoint.getPosition();
         double odoX = odoPose.getX(DistanceUnit.INCH);
         double odoY = odoPose.getY(DistanceUnit.INCH);
-        double odoHeading = odoPose.getHeading(AngleUnit.DEGREES);
+        double odoHeading = odoPose.getHeading(AngleUnit.DEGREES);  // Pinpoint heading
 
         LLResult result = limelight.getLatestResult();
         if (result != null && result.isValid()) {
@@ -162,23 +231,14 @@ public class RobotHardware {
             double visionY = limePos.y * 39.3701;
             double visionHeading = botpose.getOrientation().getYaw(AngleUnit.DEGREES);
 
-            boolean allianceTagDetected = false;
-            for (LLResultTypes.FiducialResult fr : result.getFiducialResults()) {
-                int id = fr.getFiducialId();
-                if (id == RED_APRILTAG_ID || id == BLUE_APRILTAG_ID) {
-                    allianceTagDetected = true;
-                    break;
-                }
-            }
-
-            double posError = Math.hypot(visionX - odoX, visionY - odoY);
+            double poseError = Math.hypot(visionX - odoX, visionY - odoY);
             double headingError = Math.abs(AngleUnit.normalizeDegrees(visionHeading - odoHeading));
-            boolean visionTrusted = allianceTagDetected && posError < maxPoseError && headingError < maxHeadingError && result.getFiducialResults().size() >= 1;
 
-            if (visionTrusted) {
-                double fusedX = trustVision * visionX + (1 - trustVision) * odoX;
-                double fusedY = trustVision * visionY + (1 - trustVision) * odoY;
-                double fusedHeading = AngleUnit.normalizeDegrees(odoHeading + trustVision * AngleUnit.normalizeDegrees(visionHeading - odoHeading));
+            if (poseError < maxPoseError && headingError < maxHeadingError) {
+                double fusedX = (1 - trustVision) * odoX + trustVision * visionX;
+                double fusedY = (1 - trustVision) * odoY + trustVision * visionY;
+                double fusedHeading = (1 - trustVision) * odoHeading + trustVision * visionHeading;
+
                 odoPose = new Pose2D(DistanceUnit.INCH, fusedX, fusedY, AngleUnit.DEGREES, fusedHeading);
                 pinpoint.setPosition(odoPose);
             }
@@ -265,10 +325,11 @@ public class RobotHardware {
     }
 
     public void driveToPose(Pose2D target, LinearOpMode opMode) {
-        double positionTolerance = 2.0; // inches
-        double headingTolerance = 5.0; // degrees
-        double k_p = 0.01; // tune position gain
-        double k_h = 0.01; // tune heading gain
+        double positionTolerance = 2.0;
+        double headingTolerance = 5.0;
+
+        positionPID.setTolerance(positionTolerance);
+        headingPID.setTolerance(headingTolerance);
 
         while (opMode.opModeIsActive()) {
             Pose2D current = updatePoseWithFusion();
@@ -277,99 +338,118 @@ public class RobotHardware {
             double dheading = AngleUnit.normalizeDegrees(target.getHeading(AngleUnit.DEGREES) - current.getHeading(AngleUnit.DEGREES));
 
             double positionError = Math.hypot(dx, dy);
+            positionPID.setTarget(0);
+            double positionCorrection = positionPID.calculate(positionError);
+
+            headingPID.setTarget(0);
+            double headingCorrection = headingPID.calculate(dheading);
+
+            if (positionError > 0.1) {
+                double headingRad = current.getHeading(AngleUnit.RADIANS);
+                double localForward = -dx * Math.sin(headingRad) + dy * Math.cos(headingRad);
+                double localRight = dx * Math.cos(headingRad) + dy * Math.sin(headingRad);
+
+                double forward = positionCorrection * (localForward / positionError);
+                double right = positionCorrection * (localRight / positionError);
+                double rotate = headingCorrection;
+
+                drive(forward, right, rotate);
+            } else {
+                drive(0, 0, headingCorrection);
+            }
+
+            opMode.sleep(10);
+
             if (positionError < positionTolerance && Math.abs(dheading) < headingTolerance) {
                 break;
             }
-
-            double headingRad = current.getHeading(AngleUnit.RADIANS);
-            double localForward = -dx * Math.sin(headingRad) + dy * Math.cos(headingRad);
-            double localRight = dx * Math.cos(headingRad) + dy * Math.sin(headingRad);
-
-            double forward = k_p * localForward;
-            double right = k_p * localRight;
-            double rotate = k_h * dheading;
-
-            forward = Math.max(-1, Math.min(1, forward));
-            right = Math.max(-1, Math.min(1, right));
-            rotate = Math.max(-1, Math.min(1, rotate));
-
-            drive(forward, right, rotate);
-            opMode.sleep(10);
         }
         drive(0, 0, 0);
     }
 
+    public double getHeading(AngleUnit unit) {
+        return pinpoint.getPosition().getHeading(unit);
+    }
+
+    public void resetAllPIDs() {
+        positionPID.reset();
+        headingPID.reset();
+        flywheelPID.reset();
+    }
+
     // ========== FLYWHEEL METHODS ==========
 
-    /**
-     * Start the flywheel at full power
-     */
     public void startFlywheel() {
         flywheelMotor.setPower(FLYWHEEL_POWER);
+        flywheelPID.setTarget(TARGET_RPM);
+        flywheelPID.setTolerance(100);
+        lastEncoderPos = flywheelMotor.getCurrentPosition();
+        lastTime = System.currentTimeMillis();
     }
 
-    /**
-     * Stop the flywheel
-     */
+    public void updateFlywheel() {
+        if (Math.abs(flywheelMotor.getPower()) < 0.01) return;
+
+        long now = System.currentTimeMillis();
+        double dt = (now - lastTime) / 1000.0;
+        if (dt <= 0) return;
+
+        double currentPos = flywheelMotor.getCurrentPosition();
+        double velocityTicksPerSec = (currentPos - lastEncoderPos) / dt;
+        currentRPM = (velocityTicksPerSec * 60) / TICKS_PER_REV;
+
+        double correction = flywheelPID.calculate(currentRPM);
+        flywheelMotor.setPower(correction);
+
+        lastEncoderPos = currentPos;
+        lastTime = now;
+    }
+
     public void stopFlywheel() {
         flywheelMotor.setPower(0.0);
+        flywheelPID.reset();
     }
 
-    /**
-     * Set custom flywheel power (for testing/tuning)
-     */
     public void setFlywheelPower(double power) {
         flywheelMotor.setPower(power);
     }
 
-    /**
-     * Check if flywheel is running
-     */
-    public boolean isFlywheelRunning() {
-        return Math.abs(flywheelMotor.getPower()) > 0.01;
+    public boolean isFlywheelReady() {
+        return Math.abs(flywheelPID.getError()) < flywheelPID.getTolerance();
     }
 
-    /**
-     * Get current flywheel velocity (RPM)
-     * Note: Motor must be in RUN_USING_ENCODER mode for velocity readings
-     */
     public double getFlywheelVelocity() {
-        // For REV motors: getCurrentPosition() returns encoder ticks
-        // We can estimate velocity by checking encoder change over time
-        // Or simply return if motor is running for basic feedback
+        return currentRPM;
+    }
 
-        // Simple approach: return power level as percentage
-        // For actual RPM, you'd need velocity PID control
-        return flywheelMotor.getPower() * 100.0; // Returns 0-100%
+    // ========== INTAKE METHODS ==========
+
+    public void startIntake() {
+        intakeMotor.setPower(INTAKE_POWER);
+    }
+
+    public void stopIntake() {
+        intakeMotor.setPower(0.0);
+    }
+
+    public void reverseIntake() {
+        intakeMotor.setPower(-INTAKE_POWER);
+    }
+
+    public void setIntakePower(double power) {
+        intakeMotor.setPower(power);
+    }
+
+    public boolean isIntakeRunning() {
+        return Math.abs(intakeMotor.getPower()) > 0.01;
     }
 
     // ========== GETTERS ==========
 
-    public GoBildaPinpointDriver getPinpoint() {
-        return pinpoint;
-    }
-
-    public IMU getImu() {
-        return imu;
-    }
-
-    public Limelight3A getLimelight() {
-        return limelight;
-    }
-
-    public Servo getCameraTilt() {
-        return cameraTilt;
-    }
-
-    public Servo getIndexerServo() {
-        return indexerServo;
-    }
-
-    public Servo getLifterServo() {
-        return lifterServo;
-    }
-
-    public DcMotor getFlywheelMotor() {
-        return flywheelMotor;
-    }
+    public GoBildaPinpointDriver getPinpoint() { return pinpoint; }
+    public Limelight3A getLimelight() { return limelight; }
+    public Servo getCameraTilt() { return cameraTilt; }
+    public Servo getIndexerServo() { return indexerServo; }
+    public Servo getLifterServo() { return lifterServo; }
+    public DcMotor getFlywheelMotor() { return flywheelMotor; }
 }

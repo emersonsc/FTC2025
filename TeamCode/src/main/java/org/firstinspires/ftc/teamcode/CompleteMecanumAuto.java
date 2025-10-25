@@ -59,6 +59,9 @@ public class CompleteMecanumAuto extends LinearOpMode {
 
         if (!opModeIsActive()) return;
 
+        robot.resetAllPIDs();
+        robot.getPinpoint().resetPosAndIMU();
+
         // ========== STEP 1: DETECT ALLIANCE ==========
         telemetry.addData("Step 1", "Detecting Alliance...");
         telemetry.update();
@@ -187,26 +190,26 @@ public class CompleteMecanumAuto extends LinearOpMode {
     private void turnRelativeDegrees(double relativeAngleDeg) {
         double maxTurnPower = 0.3;
         double tolerance = 2.0;
-        double k_h = 0.02; // Proportional gain
 
-        Pose2D currentPose = robot.updatePoseWithFusion();
-        double initialHeading = currentPose.getHeading(AngleUnit.DEGREES);
+        robot.headingPID.setTolerance(tolerance);
+        robot.headingPID.setTarget(0);
+
+        double initialHeading = robot.getHeading(AngleUnit.DEGREES);
         double targetHeading = AngleUnit.normalizeDegrees(initialHeading + relativeAngleDeg);
 
         while (opModeIsActive() &&
-                Math.abs(AngleUnit.normalizeDegrees(targetHeading - currentPose.getHeading(AngleUnit.DEGREES))) > tolerance) {
+                Math.abs(AngleUnit.normalizeDegrees(targetHeading - robot.getHeading(AngleUnit.DEGREES))) > tolerance) {
 
-            currentPose = robot.updatePoseWithFusion();
-            double headingError = AngleUnit.normalizeDegrees(targetHeading - currentPose.getHeading(AngleUnit.DEGREES));
+            double headingError = AngleUnit.normalizeDegrees(targetHeading - robot.getHeading(AngleUnit.DEGREES));
 
-            double rotate = k_h * headingError;
+            double rotate = robot.headingPID.calculate(headingError);
             rotate = Math.max(-maxTurnPower, Math.min(maxTurnPower, rotate));
 
             robot.drive(0, 0, rotate);
 
             telemetry.addData("Turning", "%.1f°", relativeAngleDeg);
             telemetry.addData("Target", "%.1f°", targetHeading);
-            telemetry.addData("Current", "%.1f°", currentPose.getHeading(AngleUnit.DEGREES));
+            telemetry.addData("Current", "%.1f°", robot.getHeading(AngleUnit.DEGREES));
             telemetry.addData("Error", "%.1f°", headingError);
             telemetry.update();
 
@@ -214,6 +217,7 @@ public class CompleteMecanumAuto extends LinearOpMode {
         }
 
         robot.drive(0, 0, 0);
+        robot.headingPID.reset();
     }
 
     /**
@@ -225,8 +229,11 @@ public class CompleteMecanumAuto extends LinearOpMode {
         telemetry.addData("Flywheel", "Spinning up...");
         telemetry.update();
 
-        // Wait for flywheel to reach speed
-        sleep(1000);
+        // Wait for flywheel to reach speed using PID ready check
+        while (opModeIsActive() && !robot.isFlywheelReady()) {
+            robot.updateFlywheel();
+            sleep(50);
+        }
 
         // Start the shooting sequence
         boolean sequenceStarted = indexer.startShooting(RobotData.pattern);
@@ -243,8 +250,11 @@ public class CompleteMecanumAuto extends LinearOpMode {
 
         // Run the shooting state machine until complete
         while (opModeIsActive() && !indexer.isShootingComplete()) {
-            // Flywheel is always ready in autonomous (already spun up)
-            indexer.updateShooting(true);
+            // Update flywheel PID
+            robot.updateFlywheel();
+
+            // Flywheel is ready (checked via PID)
+            indexer.updateShooting(robot.isFlywheelReady());
 
             telemetry.addData("Shooting", indexer.getShootingState());
             telemetry.addData("Shot", "%d of 3", indexer.getCurrentShotNumber());

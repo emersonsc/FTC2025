@@ -39,12 +39,11 @@ public class CompleteMecanumDrive extends OpMode {
 
     // Flywheel control
     private boolean flywheelActive = false;
-    private long flywheelStartTime = 0;
-    private static final long FLYWHEEL_SPINUP_TIME = 1000; // ms - time to reach full speed
 
     @Override
     public void init() {
         robot = new RobotHardware(hardwareMap);
+        robot.resetAllPIDs();
 
         // Initialize camera position manager
         cameraManager = new CameraPositionManager(
@@ -143,10 +142,8 @@ public class CompleteMecanumDrive extends OpMode {
 
         // A button: Reset IMU heading
         if (gamepad1.a) {
-            robot.getImu().resetYaw();
-            double odoX = odoPose.getX(DistanceUnit.INCH);
-            double odoY = odoPose.getY(DistanceUnit.INCH);
-            robot.getPinpoint().setPosition(new Pose2D(DistanceUnit.INCH, odoX, odoY, AngleUnit.DEGREES, 0));
+            robot.getPinpoint().resetPosAndIMU();
+            telemetry.addData("Heading Reset", "Pinpoint IMU");
         }
 
         // X button: Auto-drive to scoring location
@@ -205,6 +202,9 @@ public class CompleteMecanumDrive extends OpMode {
 
         // LEFT BUMPER: INTAKE MODE
         if (gamepad2.left_bumper) {
+            // Start intake motor
+            robot.startIntake();
+
             // Start intake if not already running
             if (indexer.getLoadingState() == IndexerManager.LoadingState.IDLE) {
                 indexer.startLoading();
@@ -217,6 +217,9 @@ public class CompleteMecanumDrive extends OpMode {
             indexer.updateLoading(detectedColor);
 
         } else {
+            // Stop intake motor
+            robot.stopIntake();
+
             // Stop intake when button released
             if (indexer.getLoadingState() != IndexerManager.LoadingState.IDLE &&
                     indexer.getLoadingState() != IndexerManager.LoadingState.COMPLETE) {
@@ -229,9 +232,11 @@ public class CompleteMecanumDrive extends OpMode {
             // Start flywheel if not already active
             if (!flywheelActive) {
                 flywheelActive = true;
-                flywheelStartTime = System.currentTimeMillis();
                 robot.startFlywheel();
             }
+
+            // Update flywheel PID every loop
+            robot.updateFlywheel();
 
             // Start shooting sequence if not already shooting
             if (indexer.getShootingState() == IndexerManager.ShootingState.IDLE ||
@@ -240,11 +245,8 @@ public class CompleteMecanumDrive extends OpMode {
                 indexer.startShooting(RobotData.pattern);
             }
 
-            // Check if flywheel is ready (up to speed)
-            boolean flywheelReady = (System.currentTimeMillis() - flywheelStartTime) > FLYWHEEL_SPINUP_TIME;
-
             // Update the shooting state machine
-            indexer.updateShooting(flywheelReady);
+            indexer.updateShooting(robot.isFlywheelReady());
 
         } else {
             // Stop flywheel when button released
@@ -300,8 +302,8 @@ public class CompleteMecanumDrive extends OpMode {
 
         // Flywheel status
         if (flywheelActive) {
-            double power = robot.getFlywheelVelocity();
-            telemetry.addData("Flywheel", "ACTIVE - %.0f%%", power);
+            double rpm = robot.getFlywheelVelocity();
+            telemetry.addData("Flywheel", "ACTIVE - %.0f RPM", rpm);
         }
 
         if (targeting) {
@@ -318,7 +320,7 @@ public class CompleteMecanumDrive extends OpMode {
     private void driveFieldRelative(double forward, double right, double rotate, Pose2D odoPose) {
         double theta = Math.atan2(forward, right);
         double r = Math.hypot(right, forward);
-        theta = AngleUnit.normalizeRadians(theta - odoPose.getHeading(AngleUnit.RADIANS));
+        theta = AngleUnit.normalizeRadians(theta - robot.getHeading(AngleUnit.RADIANS));
         double newForward = r * Math.sin(theta);
         double newRight = r * Math.cos(theta);
         robot.drive(newForward, newRight, rotate);
