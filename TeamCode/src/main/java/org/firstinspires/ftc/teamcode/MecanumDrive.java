@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -11,6 +12,7 @@ import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import java.util.List;
 
 @TeleOp(name = "Robot: Field Relative Mecanum Drive", group = "Robot")
+@Disabled
 public class MecanumDrive extends OpMode {
     private RobotHardware robot;
 
@@ -77,7 +79,7 @@ public class MecanumDrive extends OpMode {
         double rotate = gamepad1.right_stick_x;
 
         if (gamepad1.a) {
-            robot.getImu().resetYaw();
+            //robot.getImu().resetYaw();
             double odoX = odoPose.getX(DistanceUnit.INCH);
             double odoY = odoPose.getY(DistanceUnit.INCH);
             robot.getPinpoint().setPosition(new Pose2D(DistanceUnit.INCH, odoX, odoY, AngleUnit.DEGREES, 0));

@@ -34,11 +34,7 @@ public class LimelightColorDetector {
         return cameraManager.isReadyForColorDetection();
     }
 
-    /**
-     * METHOD 1: Dual-Pipeline Approach
-     * Switches between two pipelines and checks which one has better detection
-     * Best for: Simple color blob detection with two separate HSV-tuned pipelines
-     */
+
     public IndexerManager.ArtifactColor detectColorDualPipeline() {
         // Check green pipeline
         limelight.pipelineSwitch(GREEN_PIPELINE);
@@ -76,48 +72,9 @@ public class LimelightColorDetector {
         return IndexerManager.ArtifactColor.NONE;
     }
 
-    /**
-     * METHOD 2: Single Pipeline with HSV Range Checking
-     * Uses one pipeline and analyzes the color properties
-     * Best for: When you want to check both colors in one pipeline
-     */
-    public IndexerManager.ArtifactColor detectColorSinglePipeline() {
-        LLResult result = limelight.getLatestResult();
 
-        if (result == null || !result.isValid()) {
-            return IndexerManager.ArtifactColor.NONE;
-        }
-
-        List<LLResultTypes.ColorResult> colorResults = result.getColorResults();
-        if (colorResults.isEmpty()) {
-            return IndexerManager.ArtifactColor.NONE;
-        }
-
-        LLResultTypes.ColorResult target = colorResults.get(0);
-
-        // Check if target is large enough
-        if (target.getTargetArea() < MIN_TARGET_AREA) {
-            return IndexerManager.ArtifactColor.NONE;
-        }
-
-        // Get target position - if you've set up regions in Limelight
-        // or use target X/Y position to determine which artifact
-        double tx = target.getTargetXDegrees();
-        double ty = target.getTargetYDegrees();
-
-        // Example: If artifacts pass through center of frame
-        // and you can distinguish by position or other features
-        // This is just an example - adjust based on your setup
-
-        return IndexerManager.ArtifactColor.NONE; // Replace with your logic
-    }
-
-    /**
-     * METHOD 3: Classifier-Based Detection
-     * Uses a trained neural network classifier
-     * Best for: Most accurate detection when you have a trained model
-     */
     public IndexerManager.ArtifactColor detectColorClassifier() {
+        limelight.pipelineSwitch(4);
         LLResult result = limelight.getLatestResult();
 
         if (result == null || !result.isValid()) {
@@ -151,84 +108,9 @@ public class LimelightColorDetector {
         return IndexerManager.ArtifactColor.NONE;
     }
 
-    /**
-     * METHOD 4: Detector-Based Detection
-     * Uses object detection (like YOLO or similar)
-     * Best for: When you have a trained object detector
-     */
-    public IndexerManager.ArtifactColor detectColorDetector() {
-        LLResult result = limelight.getLatestResult();
 
-        if (result == null || !result.isValid()) {
-            return IndexerManager.ArtifactColor.NONE;
-        }
-
-        // Check detector results
-        List<LLResultTypes.DetectorResult> detectorResults = result.getDetectorResults();
-
-        if (detectorResults.isEmpty()) {
-            return IndexerManager.ArtifactColor.NONE;
-        }
-
-        // Get the first detected object (closest/largest)
-        LLResultTypes.DetectorResult detection = detectorResults.get(0);
-
-        // Check confidence
-        if (detection.getConfidence() < MIN_CONFIDENCE) {
-            return IndexerManager.ArtifactColor.NONE;
-        }
-
-        // Parse class name
-        String className = detection.getClassName().toLowerCase();
-
-        if (className.contains("green")) {
-            return IndexerManager.ArtifactColor.GREEN;
-        } else if (className.contains("purple")) {
-            return IndexerManager.ArtifactColor.PURPLE;
-        }
-
-        return IndexerManager.ArtifactColor.NONE;
-    }
 
     /**
-     * METHOD 5: Python Script Results
-     * Uses custom Python script running on Limelight
-     * Best for: Custom logic that's easier to implement in Python
-     */
-    public IndexerManager.ArtifactColor detectColorPythonScript() {
-        LLResult result = limelight.getLatestResult();
-
-        if (result == null || !result.isValid()) {
-            return IndexerManager.ArtifactColor.NONE;
-        }
-
-        // Python scripts can output custom data through various means
-        // Check the Limelight API for how your Python script sends data
-
-        // Example: If Python script outputs via custom corners or other method
-        List<LLResultTypes.ColorResult> colorResults = result.getColorResults();
-
-        if (!colorResults.isEmpty()) {
-            LLResultTypes.ColorResult pythonOutput = colorResults.get(0);
-
-            // Your Python script might encode the color in a specific way
-            // For example, using target X position as a signal:
-            // tx < 0 = GREEN, tx > 0 = PURPLE
-
-            double tx = pythonOutput.getTargetXDegrees();
-
-            if (Math.abs(tx) > 1.0) { // Threshold to avoid noise
-                return (tx < 0) ?
-                        IndexerManager.ArtifactColor.GREEN :
-                        IndexerManager.ArtifactColor.PURPLE;
-            }
-        }
-
-        return IndexerManager.ArtifactColor.NONE;
-    }
-
-    /**
-     * RECOMMENDED: Robust detection with fallbacks
      * Tries multiple methods and uses the most confident result
      */
     public IndexerManager.ArtifactColor detectColorRobust() {
@@ -236,12 +118,6 @@ public class LimelightColorDetector {
         IndexerManager.ArtifactColor classifierResult = detectColorClassifier();
         if (classifierResult != IndexerManager.ArtifactColor.NONE) {
             return classifierResult;
-        }
-
-        // Fall back to detector
-        IndexerManager.ArtifactColor detectorResult = detectColorDetector();
-        if (detectorResult != IndexerManager.ArtifactColor.NONE) {
-            return detectorResult;
         }
 
         // Fall back to color pipeline

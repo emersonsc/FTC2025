@@ -1,19 +1,23 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 
+import java.util.Objects;
+
 @Autonomous(name = "Robot: Autonomous Mecanum Drive", group = "Robot")
+@Disabled
 public class MecanumAuto extends LinearOpMode {
     private RobotHardware robot;
 
     @Override
     public void runOpMode() {
         robot = new RobotHardware(hardwareMap);
-        robot.getPinpoint().setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, 45));
+
 
         telemetry.addData(">", "Robot Ready.  Press Play.");
         telemetry.update();
@@ -22,6 +26,13 @@ public class MecanumAuto extends LinearOpMode {
 
         // Step 1: Detect alliance
         robot.detectAlliance();
+        if (Objects.equals(RobotData.alliance, "Red")){
+            robot.getPinpoint().setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, 45));
+        }
+        else {
+            robot.getPinpoint().setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, -45));
+        }
+
         telemetry.addData("Alliance Detected", RobotData.alliance);
         if (!RobotData.teamIndicatorSeen) {
             telemetry.addData("Alliance Detection", "Failed - Timeout");

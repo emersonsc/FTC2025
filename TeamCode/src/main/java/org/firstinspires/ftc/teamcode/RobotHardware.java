@@ -29,8 +29,8 @@ public class RobotHardware {
 
     // Intake and shooter motors
     private DcMotor intakeMotor;   // Active intake to pull artifacts in
-    private DcMotor flywheelMotor; // Flywheel shooter
-
+    private DcMotor flywheelMotorLeft; // Flywheel shooter
+    private DcMotor flywheelMotorRight; // Flywheel shooter
     // Indicator servos (for showing alliance and pattern)
     private Servo Team_Indicator, pattern1, pattern2, pattern3;
 
@@ -54,9 +54,9 @@ public class RobotHardware {
     public static final int PPG_APRILTAG_ID = 23;
 
     // Vision fusion parameters
-    private double trustVision = 0.8;
-    private double maxPoseError = 10.0;
-    private double maxHeadingError = 15.0;
+    private double trustVision = 0.7;
+    private double maxPoseError = 5.0;
+    private double maxHeadingError = 10.0;
 
     // Flywheel parameters
     private static final double FLYWHEEL_POWER = 1.0;
@@ -116,7 +116,7 @@ public class RobotHardware {
 
         // --- Getters ---
         public double getError() { return lastError; }
-        public double getTolerance() { return tolerance; }  // FIXED: NOW EXISTS
+        public double getTolerance() { return tolerance; }
 
         // --- Utility ---
         public void reset() {
@@ -179,10 +179,14 @@ public class RobotHardware {
         lifterServo = hardwareMap.get(Servo.class, "lifter");
 
         // Initialize flywheel motor
-        flywheelMotor = hardwareMap.get(DcMotor.class, "flywheel");
-        flywheelMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        flywheelMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        flywheelMotorLeft = hardwareMap.get(DcMotor.class, "flywheelLeft");
+        flywheelMotorRight = hardwareMap.get(DcMotor.class, "flywheelRight");
+        flywheelMotorLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        flywheelMotorRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        flywheelMotorLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        flywheelMotorRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        flywheelMotorLeft.setDirection(DcMotorSimple.Direction.FORWARD);
+        flywheelMotorRight.setDirection(DcMotorSimple.Direction.REVERSE);
 
         // Initialize intake motor
         intakeMotor = hardwareMap.get(DcMotor.class, "intake");
@@ -380,38 +384,42 @@ public class RobotHardware {
     // ========== FLYWHEEL METHODS ==========
 
     public void startFlywheel() {
-        flywheelMotor.setPower(FLYWHEEL_POWER);
+        flywheelMotorLeft.setPower(FLYWHEEL_POWER);
+        flywheelMotorRight.setPower(FLYWHEEL_POWER);
         flywheelPID.setTarget(TARGET_RPM);
         flywheelPID.setTolerance(100);
-        lastEncoderPos = flywheelMotor.getCurrentPosition();
+        lastEncoderPos = flywheelMotorLeft.getCurrentPosition();
         lastTime = System.currentTimeMillis();
     }
 
     public void updateFlywheel() {
-        if (Math.abs(flywheelMotor.getPower()) < 0.01) return;
+        if (Math.abs(flywheelMotorLeft.getPower()) < 0.01) return;
 
         long now = System.currentTimeMillis();
         double dt = (now - lastTime) / 1000.0;
         if (dt <= 0) return;
 
-        double currentPos = flywheelMotor.getCurrentPosition();
+        double currentPos = flywheelMotorLeft.getCurrentPosition();
         double velocityTicksPerSec = (currentPos - lastEncoderPos) / dt;
         currentRPM = (velocityTicksPerSec * 60) / TICKS_PER_REV;
 
         double correction = flywheelPID.calculate(currentRPM);
-        flywheelMotor.setPower(correction);
+        flywheelMotorLeft.setPower(correction);
+        flywheelMotorRight.setPower(correction);
 
         lastEncoderPos = currentPos;
         lastTime = now;
     }
 
     public void stopFlywheel() {
-        flywheelMotor.setPower(0.0);
+        flywheelMotorLeft.setPower(0.0);
+        flywheelMotorRight.setPower(0.0);
         flywheelPID.reset();
     }
 
     public void setFlywheelPower(double power) {
-        flywheelMotor.setPower(power);
+        flywheelMotorLeft.setPower(power);
+        flywheelMotorRight.setPower(power);
     }
 
     public boolean isFlywheelReady() {
@@ -451,5 +459,5 @@ public class RobotHardware {
     public Servo getCameraTilt() { return cameraTilt; }
     public Servo getIndexerServo() { return indexerServo; }
     public Servo getLifterServo() { return lifterServo; }
-    public DcMotor getFlywheelMotor() { return flywheelMotor; }
+    public DcMotor getFlywheelMotor() { return flywheelMotorLeft; }
 }
