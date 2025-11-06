@@ -290,13 +290,14 @@ public class CompleteMecanumDrive extends OpMode {
                 forceShootSlot = 1;
                 forceShootState = ForceShootState.ROTATE;
                 forceShootStateStart = System.currentTimeMillis();
-
+                robot.setPatternOrange();
                 // Spin flywheel full blast
                 robot.flywheelMotorLeft.setPower(1.0);
                 robot.flywheelMotorRight.setPower(1.0);
 
                 telemetry.addData("FORCE SHOOT", "STARTED - Slot 1");
             }
+
 
             // ---- STATE MACHINE ----
             long elapsed = System.currentTimeMillis() - forceShootStateStart;
@@ -350,6 +351,7 @@ public class CompleteMecanumDrive extends OpMode {
             // ---- BUTTON RELEASED: CANCEL ----
             if (forceShootActive) {
                 forceShootActive = false;
+                robot.setPatternOff();
                 forceShootState = ForceShootState.IDLE;
                 robot.flywheelMotorLeft.setPower(0);
                 robot.flywheelMotorRight.setPower(0);

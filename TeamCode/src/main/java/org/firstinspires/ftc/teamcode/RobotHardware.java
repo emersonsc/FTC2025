@@ -45,6 +45,7 @@ public class RobotHardware {
     private static final double GREEN_INDICATOR = 0.48;
     private static final double PURPLE_INDICATOR = 0.69;
     private static final double OFF_INDICATOR = 0.0;
+    private static final double ORANGE_INDICATOR = 0.58;
 
     // AprilTag IDs
     public static final int RED_APRILTAG_ID = 24;
@@ -249,6 +250,18 @@ public class RobotHardware {
             }
         }
         return odoPose;
+    }
+
+    public void setPatternOrange() {
+        pattern1.setPosition(ORANGE_INDICATOR);
+        pattern2.setPosition(ORANGE_INDICATOR);
+        pattern3.setPosition(ORANGE_INDICATOR);
+    }
+
+    public void setPatternOff() {
+        pattern1.setPosition(OFF_INDICATOR);
+        pattern2.setPosition(OFF_INDICATOR);
+        pattern3.setPosition(OFF_INDICATOR);
     }
 
     public void detectAlliance() {
