@@ -22,7 +22,7 @@ public class CameraPositionManager {
     // Servo positions - TUNE THESE to match your physical setup
     private static final double APRILTAG_POSITION = 0.2;   // Looking up/forward for AprilTags
     private static final double OBELISK_POSITION = 0.3;    // Angled to see obelisk
-    private static final double INTAKE_POSITION = 0.8;     // Looking down at intake path
+    private static final double INTAKE_POSITION = 0.9;     // Looking down at intake path
 
     // Pipeline indices for different detection tasks
     private static final int APRILTAG_PIPELINE = 0;        // AprilTag detection pipeline

@@ -60,7 +60,7 @@ public class RobotHardware {
 
     // Flywheel parameters
     private static final double FLYWHEEL_POWER = 1.0;
-    private static final double TARGET_RPM = 3000;
+    private static final double TARGET_RPM = 6000;
     private static final int TICKS_PER_REV = 28;
     private double lastEncoderPos = 0;
     private long lastTime = 0;
@@ -129,7 +129,7 @@ public class RobotHardware {
 
     public PIDController positionPID = new PIDController(0.01, 0.0005, 0.002);
     public PIDController headingPID   = new PIDController(0.01, 0.0002, 0.001);
-    public PIDController flywheelPID  = new PIDController(0.0005, 0.00001, 0.0001);
+    public PIDController flywheelPID  = new PIDController(0.5, 0, 0);
 
     // Intake parameters
     private static final double INTAKE_POWER = 0.8;
@@ -192,6 +192,7 @@ public class RobotHardware {
         intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        intakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
     }
 
     public void configurePinpoint() {
