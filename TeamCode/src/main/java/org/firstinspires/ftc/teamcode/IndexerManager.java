@@ -419,7 +419,7 @@ public class IndexerManager {
     /**
      * Clear a specific slot
      */
-    private void clearSlot(int slotNumber) {
+    public void clearSlot(int slotNumber) {
         switch (slotNumber) {
             case 1: slotOne = ArtifactColor.NONE; break;
             case 2: slotTwo = ArtifactColor.NONE; break;
@@ -457,7 +457,7 @@ public class IndexerManager {
     /**
      * Rotate a slot to the shooter position (180° from intake)
      */
-    private void rotateSlotToShooter(int slotNumber) {
+    public void rotateSlotToShooter(int slotNumber) {
         if (slotNumber < 1 || slotNumber > 3) return;
 
         double targetPosition;

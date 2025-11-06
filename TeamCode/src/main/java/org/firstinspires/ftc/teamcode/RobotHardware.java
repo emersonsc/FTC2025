@@ -29,8 +29,8 @@ public class RobotHardware {
 
     // Intake and shooter motors
     private DcMotor intakeMotor;   // Active intake to pull artifacts in
-    private DcMotor flywheelMotorLeft; // Flywheel shooter
-    private DcMotor flywheelMotorRight; // Flywheel shooter
+    public DcMotor flywheelMotorLeft; // Flywheel shooter
+    public DcMotor flywheelMotorRight; // Flywheel shooter
     // Indicator servos (for showing alliance and pattern)
     private Servo Team_Indicator, pattern1, pattern2, pattern3;
 
@@ -461,4 +461,6 @@ public class RobotHardware {
     public Servo getIndexerServo() { return indexerServo; }
     public Servo getLifterServo() { return lifterServo; }
     public DcMotor getFlywheelMotor() { return flywheelMotorLeft; }
+
+
 }

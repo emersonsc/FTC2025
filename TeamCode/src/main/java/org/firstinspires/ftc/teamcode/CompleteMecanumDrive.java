@@ -28,6 +28,16 @@ import java.util.List;
  */
 @TeleOp(name = "Robot: Complete Mecanum Drive", group = "Robot")
 public class CompleteMecanumDrive extends OpMode {
+    // ---------- ADD THESE FIELDS ----------
+    private boolean forceShootActive = false;
+    private int forceShootSlot = 1;               // 1,2,3
+    private long forceShootStateStart = 0;
+    private enum ForceShootState { IDLE, ROTATE, LIFT, SHOOT, LOWER, NEXT }
+    private ForceShootState forceShootState = ForceShootState.IDLE;
+    private static final long ROTATE_TIME = 600;   // ms
+    private static final long LIFT_TIME   = 300;
+    private static final long SHOOT_TIME  = 500;
+    private static final long LOWER_TIME  = 300;
     private RobotHardware robot;
     private IndexerManager indexer;
     private LimelightColorDetector colorDetector;
@@ -271,7 +281,82 @@ public class CompleteMecanumDrive extends OpMode {
         if (gamepad2.a) {
             indexer.resetToHome();
         }
+        //Dummy Proof Shooting. It just fires all three shots whether it is up to speed or not. Not matter where the robot is
+        // ==================== FORCE SHOOT (ONE BUTTON) ====================
+        if (gamepad2.x) {
+            // ---- BUTTON PRESSED: START SEQUENCE ----
+            if (!forceShootActive) {
+                forceShootActive = true;
+                forceShootSlot = 1;
+                forceShootState = ForceShootState.ROTATE;
+                forceShootStateStart = System.currentTimeMillis();
 
+                // Spin flywheel full blast
+                robot.flywheelMotorLeft.setPower(1.0);
+                robot.flywheelMotorRight.setPower(1.0);
+
+                telemetry.addData("FORCE SHOOT", "STARTED - Slot 1");
+            }
+
+            // ---- STATE MACHINE ----
+            long elapsed = System.currentTimeMillis() - forceShootStateStart;
+
+            switch (forceShootState) {
+                case ROTATE:
+                    indexer.rotateSlotToShooter(forceShootSlot);
+                    if (elapsed >= ROTATE_TIME) {
+                        forceShootState = ForceShootState.LIFT;
+                        forceShootStateStart = System.currentTimeMillis();
+                    }
+                    break;
+
+                case LIFT:
+                    robot.getLifterServo().setPosition(0.5); // LIFTER_LIFT
+                    if (elapsed >= LIFT_TIME) {
+                        forceShootState = ForceShootState.SHOOT;
+                        forceShootStateStart = System.currentTimeMillis();
+                    }
+                    break;
+
+                case SHOOT:
+                    // Flywheel already at 100%
+                    if (elapsed >= SHOOT_TIME) {
+                        forceShootState = ForceShootState.LOWER;
+                        forceShootStateStart = System.currentTimeMillis();
+                    }
+                    break;
+
+                case LOWER:
+                    robot.getLifterServo().setPosition(0.0); // LIFTER_HOME
+                    // Clear slot (even if empty)
+                    indexer.clearSlot(forceShootSlot);
+                    if (elapsed >= LOWER_TIME) {
+                        forceShootSlot++;
+                        if (forceShootSlot > 3) {
+                            forceShootState = ForceShootState.IDLE;
+                            forceShootActive = false;
+                            robot.flywheelMotorLeft.setPower(0);
+                            robot.flywheelMotorRight.setPower(0);
+                            telemetry.addData("FORCE SHOOT", "COMPLETE");
+                        } else {
+                            forceShootState = ForceShootState.ROTATE;
+                            forceShootStateStart = System.currentTimeMillis();
+                            telemetry.addData("FORCE SHOOT", "Slot " + forceShootSlot);
+                        }
+                    }
+                    break;
+            }
+        } else {
+            // ---- BUTTON RELEASED: CANCEL ----
+            if (forceShootActive) {
+                forceShootActive = false;
+                forceShootState = ForceShootState.IDLE;
+                robot.flywheelMotorLeft.setPower(0);
+                robot.flywheelMotorRight.setPower(0);
+                robot.getLifterServo().setPosition(0.0);
+                telemetry.addData("FORCE SHOOT", "CANCELLED");
+            }
+        }
         // ========== TELEMETRY ==========
         telemetry.addData("Alliance", RobotData.alliance);
         telemetry.addData("Pattern", RobotData.pattern);
