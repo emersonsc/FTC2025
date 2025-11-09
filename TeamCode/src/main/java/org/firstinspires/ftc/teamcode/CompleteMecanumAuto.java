@@ -38,7 +38,7 @@ public class CompleteMecanumAuto extends LinearOpMode {
         );
 
         // Set initial pose (adjust based on starting position)
-        robot.getPinpoint().setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, 0));
+        robot.getPinpoint().setPosition(new Pose2D(DistanceUnit.INCH, 63, -9, AngleUnit.DEGREES, 0));
 
         // ========== PRELOAD ARTIFACTS ==========
         // STANDARD PRELOAD: Always load the same way every match
@@ -71,6 +71,7 @@ public class CompleteMecanumAuto extends LinearOpMode {
 
         robot.detectAlliance();
 
+
         telemetry.addData("Alliance", RobotData.alliance);
         if (!RobotData.teamIndicatorSeen) {
             telemetry.addData("Warning", "Alliance Detection Failed");
@@ -83,9 +84,9 @@ public class CompleteMecanumAuto extends LinearOpMode {
         telemetry.update();
 
         if (RobotData.alliance.equals("Red")) {
-            turnRelativeDegrees(45); // CCW for Red
+            turnRelativeDegrees(90); // CCW for Red
         } else if (RobotData.alliance.equals("Blue")) {
-            turnRelativeDegrees(-45); // CW for Blue
+            turnRelativeDegrees(-90); // CW for Blue
         }
 
         // ========== STEP 3: DETECT PATTERN/MOTIF ==========

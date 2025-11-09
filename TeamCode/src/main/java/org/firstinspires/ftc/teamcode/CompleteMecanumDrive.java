@@ -34,7 +34,7 @@ public class CompleteMecanumDrive extends OpMode {
     private long forceShootStateStart = 0;
     private enum ForceShootState { IDLE, ROTATE, LIFT, SHOOT, LOWER, NEXT }
     private ForceShootState forceShootState = ForceShootState.IDLE;
-    private static final long ROTATE_TIME = 600;   // ms
+    private static final long ROTATE_TIME = 800;   // ms
     private static final long LIFT_TIME   = 300;
     private static final long SHOOT_TIME  = 500;
     private static final long LOWER_TIME  = 300;
@@ -102,7 +102,8 @@ public class CompleteMecanumDrive extends OpMode {
             // Shooting or auto-driving - point camera up for AprilTags
             cameraManager.moveTo(CameraPositionManager.CameraPosition.APRILTAG_VIEW);
         } else {
-            // Default - keep camera up for AprilTag detection and navigation
+            // Default - keep camera up for
+            // AprilTag detection and navigation
             if (cameraManager.getCurrentPosition() != CameraPositionManager.CameraPosition.APRILTAG_VIEW) {
                 cameraManager.moveTo(CameraPositionManager.CameraPosition.APRILTAG_VIEW);
             }
@@ -242,23 +243,26 @@ public class CompleteMecanumDrive extends OpMode {
             // Start flywheel if not already active
             if (!flywheelActive) {
                 flywheelActive = true;
-                robot.startFlywheel();
+                robot.startFlywheelIntake();
             }
+
+
 
             // Update flywheel PID every loop
-            robot.updateFlywheel();
+            //robot.updateFlywheel();
 
             // Start shooting sequence if not already shooting
-            if (indexer.getShootingState() == IndexerManager.ShootingState.IDLE ||
-                    indexer.getShootingState() == IndexerManager.ShootingState.COMPLETE) {
+            //if (indexer.getShootingState() == IndexerManager.ShootingState.IDLE ||
+              //      indexer.getShootingState() == IndexerManager.ShootingState.COMPLETE) {
 
-                indexer.startShooting(RobotData.pattern);
-            }
+               // indexer.startShooting(RobotData.pattern);
+           // }
 
             // Update the shooting state machine
             indexer.updateShooting(robot.isFlywheelReady());
 
-        } else {
+        }
+        else {
             // Stop flywheel when button released
             if (flywheelActive) {
                 flywheelActive = false;
@@ -292,8 +296,8 @@ public class CompleteMecanumDrive extends OpMode {
                 forceShootStateStart = System.currentTimeMillis();
                 robot.setPatternOrange();
                 // Spin flywheel full blast
-                robot.flywheelMotorLeft.setPower(1.0);
-                robot.flywheelMotorRight.setPower(1.0);
+                robot.flywheelMotorLeft.setPower(1);
+                robot.flywheelMotorRight.setPower(1);
 
                 telemetry.addData("FORCE SHOOT", "STARTED - Slot 1");
             }

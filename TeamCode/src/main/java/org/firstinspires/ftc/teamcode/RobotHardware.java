@@ -60,7 +60,8 @@ public class RobotHardware {
     private double maxHeadingError = 10.0;
 
     // Flywheel parameters
-    private static final double FLYWHEEL_POWER = 1.0;
+    private static final double FLYWHEEL_POWER = 1;
+    private static final double FLYWHEEL_IN_POWER = -0.5;
     private static final double TARGET_RPM = 6000;
     private static final int TICKS_PER_REV = 28;
     private double lastEncoderPos = 0;
@@ -182,8 +183,8 @@ public class RobotHardware {
         // Initialize flywheel motor
         flywheelMotorLeft = hardwareMap.get(DcMotor.class, "flywheelLeft");
         flywheelMotorRight = hardwareMap.get(DcMotor.class, "flywheelRight");
-        flywheelMotorLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        flywheelMotorRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        flywheelMotorLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        flywheelMotorRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         flywheelMotorLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheelMotorRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheelMotorLeft.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -400,6 +401,15 @@ public class RobotHardware {
     public void startFlywheel() {
         flywheelMotorLeft.setPower(FLYWHEEL_POWER);
         flywheelMotorRight.setPower(FLYWHEEL_POWER);
+        flywheelPID.setTarget(TARGET_RPM);
+        flywheelPID.setTolerance(100);
+        lastEncoderPos = flywheelMotorLeft.getCurrentPosition();
+        lastTime = System.currentTimeMillis();
+    }
+
+    public void startFlywheelIntake() {
+        flywheelMotorLeft.setPower(FLYWHEEL_IN_POWER);
+        flywheelMotorRight.setPower(FLYWHEEL_IN_POWER);
         flywheelPID.setTarget(TARGET_RPM);
         flywheelPID.setTolerance(100);
         lastEncoderPos = flywheelMotorLeft.getCurrentPosition();
